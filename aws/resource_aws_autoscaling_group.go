@@ -41,6 +41,7 @@ func resourceAwsAutoscalingGroup() *schema.Resource {
 				ConflictsWith: []string{"name_prefix"},
 				ValidateFunc:  validation.StringLenBetween(0, 255),
 			},
+			
 			"name_prefix": {
 				Type:         schema.TypeString,
 				Optional:     true,

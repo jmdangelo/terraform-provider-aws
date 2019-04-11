@@ -30,8 +30,17 @@ func resourceAwsEcsService() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 				ForceNew: true,
+				ConflictsWith: []string{"name_prefix"},
+				ValidateFunc:  validation.StringLenBetween(0, 255),
+			},
+
+			"name_prefix": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.StringLenBetween(0, 255-resource.UniqueIDSuffixLength),
 			},
 
 			"cluster": {
@@ -358,11 +367,23 @@ func resourceAwsEcsServiceCreate(d *schema.ResourceData, meta interface{}) error
 	deploymentMinimumHealthyPercent := d.Get("deployment_minimum_healthy_percent").(int)
 	schedulingStrategy := d.Get("scheduling_strategy").(string)
 
+	var serviceName String
+	if v, ok := d.GetOk("name"); ok {
+		serviceName = v.(string)
+	} else {
+		if v, ok := d.GetOk("name_prefix"); ok {
+			serviceName = resource.PrefixedUniqueId(v.(string))
+		} else {
+			serviceName = resource.PrefixedUniqueId("tf-service-")
+		}
+		d.Set("name", serviceName)
+	}
+
 	input := ecs.CreateServiceInput{
 		ClientToken:          aws.String(resource.UniqueId()),
 		DeploymentController: expandEcsDeploymentController(d.Get("deployment_controller").([]interface{})),
 		SchedulingStrategy:   aws.String(schedulingStrategy),
-		ServiceName:          aws.String(d.Get("name").(string)),
+		ServiceName:          aws.String(d.Get("serviceName"),
 		Tags:                 tagsFromMapECS(d.Get("tags").(map[string]interface{})),
 		TaskDefinition:       aws.String(d.Get("task_definition").(string)),
 		EnableECSManagedTags: aws.Bool(d.Get("enable_ecs_managed_tags").(bool)),
